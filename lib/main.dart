@@ -178,7 +178,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
                     if (picked != null) {
                       final saved = await _saveImageFile(id, picked);
                       imagePath = saved;
-                      setStateDialog(() {}); // atualizar di\u0000e1logo
+                      setStateDialog(() {}); // atualizar diálogo
                     }
                   },
                 ),
@@ -186,7 +186,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')), 
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
             ElevatedButton(
                 onPressed: () async {
                   final name = nameController.text.trim();
@@ -200,7 +200,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
                   await box.put(id, token); // armazenamos com chave = id (evita duplicatas)
                   Navigator.of(ctx).pop();
                 },
-                child: const Text('Salvar')), 
+                child: const Text('Salvar')),
           ],
         );
       }),
@@ -220,7 +220,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
             content: Text('Remover "${token?.name}"?'),
             actions: [
               TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Não')),
-              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Sim')), 
+              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Sim')),
             ],
           ),
         ) ??
@@ -239,7 +239,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
 
   // ---------- BACKUP / RESTORE ----------
 
-  // Exporta arquivo zip contendo arquivos do Hive (tokens.*) e a pasta images, al\u0000e9m do hive_key.txt (se existir)
+  // Exporta arquivo zip contendo arquivos do Hive (tokens.*) e a pasta images, além do hive_key.txt (se existir)
   Future<void> _exportBackup() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -262,7 +262,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
         }
       }
 
-      // Inclui imagens (diret\u0000f3rio images/)
+      // Inclui imagens (diretório images/)
       final imagesDir = Directory('${dirPath}/images');
       if (await imagesDir.exists()) {
         final imageFiles = imagesDir.listSync(recursive: true);
@@ -275,7 +275,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
         }
       }
 
-      // Inclui a chave do Hive (opcional) para facilitar a restaura\u0000e7\u0000e3o
+      // Inclui a chave do Hive (opcional) para facilitar a restauração
       final storage = const FlutterSecureStorage();
       final stored = await storage.read(key: _secureKeyName);
       if (stored != null && stored.isNotEmpty) {
@@ -301,7 +301,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
     }
   }
 
-  // Importa um ZIP selecionado pelo usu\u0000e1rio. Fecha Hive antes de sobrescrever arquivos.
+  // Importa um ZIP selecionado pelo usuário. Fecha Hive antes de sobrescrever arquivos.
   Future<void> _importBackup() async {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
@@ -317,7 +317,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
       final dir = await getApplicationDocumentsDirectory();
       final dirPath = dir.path;
 
-      // Extrai arquivos para o diret\u0000f3rio appDocuments (sobrescreve)
+      // Extrai arquivos para o diretório appDocuments (sobrescreve)
       for (final file in archive) {
         final filename = file.name;
         // esperamos que dentro do zip os arquivos estejam com prefixo app/...
@@ -338,7 +338,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
         final stored = await keyFile.readAsString();
         final storage = const FlutterSecureStorage();
         await storage.write(key: _secureKeyName, value: stored);
-        // opcional: deletar hive_key.txt do diret\u0000f3rio extra\u0000e7do por seguran\u0000e7a
+        // opcional: deletar hive_key.txt do diretório extraído por segurança
         // await keyFile.delete();
       }
 
@@ -356,7 +356,7 @@ class _TokenHomePageState extends State<TokenHomePage> {
       _showMessage('Backup importado com sucesso.');
     } catch (e) {
       _showMessage('Erro importando backup: $e');
-      // tenta reabrir box caso erro (recupera\u0000e7\u0000e3o)
+      // tenta reabrir box caso erro (recuperação)
       try {
         final keyBytes = await _getStoredKeyBytes();
         if (keyBytes != null) await Hive.openBox<Token>('tokens', encryptionCipher: HiveAesCipher(keyBytes));
@@ -365,4 +365,91 @@ class _TokenHomePageState extends State<TokenHomePage> {
     }
   }
 
-  // ---------- FIM BACKUP / RESTORE ----------\n\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      appBar: AppBar(\n        title: const Text('Registro NFC - Tokens (Hive + Backup/Cripto)'),\n        actions: [\n          IconButton(\n            icon: const Icon(Icons.backup),\n            tooltip: 'Exportar backup',\n            onPressed: _exportBackup,\n          ),\n          IconButton(\n            icon: const Icon(Icons.restore),\n            tooltip: 'Importar backup',\n            onPressed: _importBackup,\n          ),\n          IconButton(\n            icon: const Icon(Icons.nfc),\n            tooltip: 'Registrar token (encoste o token)',\n            onPressed: _startNfcSession,\n          ),\n          IconButton(\n            icon: const Icon(Icons.info_outline),\n            onPressed: () {\n              showAboutDialog(\n                context: context,\n                applicationName: 'Registro NFC - Tokens (Hive)',\n                applicationVersion: '0.2',\n                children: const [Text('App para registrar tokens NFC com Hive, backup e criptografia local.')],\n              );\n            },\n          )\n        ],\n      ),\n      body: ValueListenableBuilder(\n        valueListenable: box.listenable(),\n        builder: (context, Box<Token> b, _) {\n          final keys = b.keys.cast<String>().toList();\n          if (keys.isEmpty) return const Center(child: Text('Nenhum token salvo.'));\n          return ListView.builder(\n            itemCount: keys.length,\n            itemBuilder: (context, i) {\n              final key = keys[i];\n              final t = b.get(key);\n              if (t == null) return const SizedBox.shrink();\n              return ListTile(\n                leading: (t.imagePath != null && File(t.imagePath!).existsSync())\n                    ? CircleAvatar(backgroundImage: FileImage(File(t.imagePath!)))\n                    : const CircleAvatar(child: Icon(Icons.vpn_key)),\n                title: Text(t.name),\n                subtitle: Text('ID: \${t.id}\nAdicionado: \${t.addedAt}'),\n                isThreeLine: true,\n                trailing: IconButton(\n                  icon: const Icon(Icons.delete),\n                  onPressed: () => _confirmDelete(key),\n                ),\n                onTap: () {\n                  showDialog(\n                      context: context,\n                      builder: (ctx) => AlertDialog(\n                            title: Text(t.name),\n                            content: Column(\n                              mainAxisSize: MainAxisSize.min,\n                              children: [\n                                Text('ID: \${t.id}'),\n                                const SizedBox(height: 8),\n                                if (t.imagePath != null && File(t.imagePath!).existsSync())\n                                  Image.file(File(t.imagePath!)),\n                              ],\n                            ),\n                            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Fechar'))],\n                          ));\n                },\n              );\n            },\n          );\n        },\n      ),\n      floatingActionButton: FloatingActionButton.extended(\n        icon: const Icon(Icons.nfc),\n        label: const Text('Registrar (encoste token)'),\n        onPressed: _startNfcSession,\n      ),\n    );\n  }\n}
+  // ---------- FIM BACKUP / RESTORE ----------
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Registro NFC - Tokens (Hive + Backup/Cripto)'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.backup),
+            tooltip: 'Exportar backup',
+            onPressed: _exportBackup,
+          ),
+          IconButton(
+            icon: const Icon(Icons.restore),
+            tooltip: 'Importar backup',
+            onPressed: _importBackup,
+          ),
+          IconButton(
+            icon: const Icon(Icons.nfc),
+            tooltip: 'Registrar token (encoste o token)',
+            onPressed: _startNfcSession,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'Registro NFC - Tokens (Hive)',
+                applicationVersion: '0.2',
+                children: const [Text('App para registrar tokens NFC com Hive, backup e criptografia local.')],
+              );
+            },
+          )
+        ],
+      ),
+      body: ValueListenableBuilder(
+        valueListenable: box.listenable(),
+        builder: (context, Box<Token> b, _) {
+          final keys = b.keys.cast<String>().toList();
+          if (keys.isEmpty) return const Center(child: Text('Nenhum token salvo.'));
+          return ListView.builder(
+            itemCount: keys.length,
+            itemBuilder: (context, i) {
+              final key = keys[i];
+              final t = b.get(key);
+              if (t == null) return const SizedBox.shrink();
+              return ListTile(
+                leading: (t.imagePath != null && File(t.imagePath!).existsSync())
+                    ? CircleAvatar(backgroundImage: FileImage(File(t.imagePath!)))
+                    : const CircleAvatar(child: Icon(Icons.vpn_key)),
+                title: Text(t.name),
+                subtitle: Text('ID: ${t.id}\nAdicionado: ${t.addedAt}'),
+                isThreeLine: true,
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () => _confirmDelete(key),
+                ),
+                onTap: () {
+                  showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                            title: Text(t.name),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('ID: ${t.id}'),
+                                const SizedBox(height: 8),
+                                if (t.imagePath != null && File(t.imagePath!).existsSync())
+                                  Image.file(File(t.imagePath!)),
+                              ],
+                            ),
+                            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Fechar'))],
+                          ));
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.nfc),
+        label: const Text('Registrar (encoste token)'),
+        onPressed: _startNfcSession,
+      ),
+    );
+  }
+}

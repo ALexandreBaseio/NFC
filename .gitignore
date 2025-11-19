@@ -1,3 +1,35 @@
-# Adicione as entradas abaixo ao .gitignore para evitar subir segredos
+# Generated/standard Flutter ignores (partial). Keep and merge with existing .gitignore if present.
+
+# Flutter/Dart/Pub
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-version
+
+# Android/IntelliJ/Gradle
+**/android/**/local.properties
+**/.gradle/
+**/build/
+**/captures/
+android/.gradle/
+.android/
+*.iml
+*.ipr
+*.iws
+
+# iOS
+ios/Pods/
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Sensitive files we don't want committed
 /android/key.properties
 *.jks
+
+# VS Code
+.vscode/
+
+# Others
+.DS_Store

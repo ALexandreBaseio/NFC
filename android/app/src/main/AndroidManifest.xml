@@ -1,3 +1,4 @@
+<!-- Adicione/mescle as permissões abaixo ao AndroidManifest.xml do seu app -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.nfc_token_registry">
 

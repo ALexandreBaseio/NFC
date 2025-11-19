@@ -31,11 +31,11 @@ Instalação rápida
 ---
 1. Garanta que o Flutter está instalado e configurado.
 2. No diretório do projeto:
-```
+```bash
 flutter pub get
 ```
 3. Execute no dispositivo físico (NFC não funciona em emuladores padrão):
-```
+```bash
 flutter run
 ```
 
@@ -124,15 +124,15 @@ Soluções para problemas comuns
 Comandos úteis
 ---
 - Obter dependências:
-```
+```bash
 flutter pub get
 ```
 - Rodar no aparelho conectado:
-```
+```bash
 flutter run
 ```
 - Build APK/IPA:
-```
+```bash
 flutter build apk --release
 # ou
 flutter build ios --release
