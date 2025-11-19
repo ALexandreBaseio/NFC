@@ -1,0 +1,3 @@
+# Adicione as entradas abaixo ao .gitignore para evitar subir segredos
+/android/key.properties
+*.jks
