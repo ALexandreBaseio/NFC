@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"> 
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Precisamos da câmera para tirar foto do token (opcional).</string>
+
+  <key>NSNFCReaderUsageDescription</key>
+  <string>Usamos NFC para registrar o ID do seu token quando encostado no aparelho.</string>
+</dict>
+</plist>

@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.nfc_token_registry">
+
+    <!-- Permissão NFC -->
+    <uses-permission android:name="android.permission.NFC" />
+
+    <!-- Permissão câmera (para image_picker) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Indica que o dispositivo pode ter NFC; required=false permite instalar em aparelhos sem NFC -->
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+
+    <application
+        android:label="nfc_token_registry"
+        android:icon="@mipmap/ic_launcher">
+        <!-- activity e outras tags geradas pelo flutter -->
+    </application>
+</manifest>

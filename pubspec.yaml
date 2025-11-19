@@ -1,0 +1,26 @@
+name: nfc_token_registry
+description: App simples para registrar tokens NFC com Hive, imagens em disco, backup e criptografia.
+publish_to: "none"
+version: 0.1.0
+environment:
+  sdk: ">=2.18.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.0.14
+  image_picker: ^0.8.7+4
+  nfc_manager: ^2.2.0
+  permission_handler: ^10.4.0
+  flutter_secure_storage: ^8.0.0
+  archive: ^3.3.8
+  file_picker: ^5.2.5
+  share_plus: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
