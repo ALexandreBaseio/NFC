@@ -95,8 +95,9 @@ class _TokenHomePageState extends State<TokenHomePage> {
     final data = tag.data;
     if (data == null) return null;
 
-    if (data['id'] != null && data['id'] is Uint8List) {
-      return _bytesToHex(data['id'] as Uint8List);
+    final Map<String, dynamic> dataMap = data as Map<String, dynamic>;
+    if (dataMap['id'] != null && dataMap['id'] is Uint8List) {
+      return _bytesToHex(dataMap['id'] as Uint8List);
     }
 
     String? found;
@@ -122,8 +123,10 @@ class _TokenHomePageState extends State<TokenHomePage> {
       return;
     }
 
-    NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
-      try {
+    NfcManager.instance.startSession(
+      pollingOptions: {NfcPollingOption.iso14443},
+      onDiscovered: (NfcTag tag) async {
+        try {
         final id = _extractId(tag);
         NfcManager.instance.stopSession();
         if (id == null) {
@@ -132,9 +135,10 @@ class _TokenHomePageState extends State<TokenHomePage> {
         }
         await _onTagRead(id);
       } catch (e) {
-        NfcManager.instance.stopSession(errorMessage: 'Erro: $e');
+        NfcManager.instance.stopSession();
       }
-    });
+      },
+    );
   }
 
   Future<String> _saveImageFile(String id, XFile picked) async {

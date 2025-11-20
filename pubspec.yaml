@@ -11,14 +11,22 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.0.14
   image_picker: ^0.8.7+4
-  nfc_manager: ^2.2.0
-  permission_handler: ^10.4.0
+  nfc_manager: 4.1.1
+  permission_handler: ^11.0.0
   flutter_secure_storage: ^8.0.0
   archive: ^3.3.8
-  file_picker: ^5.2.5
-  share_plus: ^6.3.0
+  file_picker:
+    git:
+      url: https://github.com/miguelpruivo/flutter_file_picker.git
+      ref: master
+  share_plus: ^12.0.1
+  json_annotation: ^4.8.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
+
 flutter:
   uses-material-design: true

@@ -1,8 +1,6 @@
 // Modelo Token + TypeAdapter (manual) para Hive
 import 'package:hive/hive.dart';
 
-part 'token.g.dart'; // não obrigatório, mantido por compatibilidade
-
 @HiveType(typeId: 0)
 class Token {
   @HiveField(0)
