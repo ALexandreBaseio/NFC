@@ -1,142 +1,134 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:archive/archive_io.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:archive/archive.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'models/token.dart';
 
-const _secureKeyName = 'hive_key';
+// Nome da chave usada no flutter_secure_storage para guardar a chave de criptografia do Hive
+const _secureKeyName = 'hive_encryption_key';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Hive.initFlutter();
   Hive.registerAdapter(TokenAdapter());
 
-  // inicializa/gera chave e abre box (se chave existir usa encriptação)
-  final keyBytes = await _ensureEncryptionKeyExists();
+  // Gera e armazena uma chave de criptografia segura na primeira vez que o app é executado
+  final storage = const FlutterSecureStorage();
+  final storedKey = await storage.read(key: _secureKeyName);
+  if (storedKey == null) {
+    final key = Hive.generateSecureKey();
+    await storage.write(key: _secureKeyName, value: base64UrlEncode(key));
+  }
+
+  // Abre a box com a chave de criptografia
+  final keyBytes = await _getStoredKeyBytes();
   if (keyBytes != null) {
-    await Hive.openBox<Token>('tokens', encryptionCipher: HiveAesCipher(keyBytes));
+    await Hive.openBox<Token>('tokens',
+        encryptionCipher: HiveAesCipher(keyBytes));
   } else {
+    // fallback caso a chave não exista (não deve acontecer)
     await Hive.openBox<Token>('tokens');
   }
 
   runApp(const MyApp());
 }
 
-// Gera/recupera a chave do flutter_secure_storage.
-// Retorna bytes da chave (32 bytes) ou null se não houver (não esperado).
-Future<Uint8List?> _ensureEncryptionKeyExists() async {
-  final storage = const FlutterSecureStorage();
-  final existing = await storage.read(key: _secureKeyName);
-  if (existing != null && existing.isNotEmpty) {
-    try {
-      final bytes = base64Url.decode(existing);
-      if (bytes.length == 32) return Uint8List.fromList(bytes);
-    } catch (_) {}
-  }
-  // Se não existir, gera e salva
-  final rng = Random.secure();
-  final key = List<int>.generate(32, (_) => rng.nextInt(256));
-  final encoded = base64UrlEncode(key);
-  await storage.write(key: _secureKeyName, value: encoded);
-  return Uint8List.fromList(key);
-}
-
-// Recupera bytes da chave (se existir), sem gerar.
+// Retorna a chave de criptografia armazenada no secure storage
 Future<Uint8List?> _getStoredKeyBytes() async {
   final storage = const FlutterSecureStorage();
-  final existing = await storage.read(key: _secureKeyName);
-  if (existing == null) return null;
-  try {
-    final bytes = base64Url.decode(existing);
-    return Uint8List.fromList(bytes);
-  } catch (_) {
-    return null;
-  }
+  final storedKey = await storage.read(key: _secureKeyName);
+  return storedKey != null ? base64Url.decode(storedKey) : null;
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Registro NFC - Tokens (Hive + Backup/Cripto)',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const TokenHomePage(),
+      debugShowCheckedModeBanner: false,
+      title: 'NFC Token Registry',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.teal,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const MyHomePage(),
     );
   }
 }
 
-class TokenHomePage extends StatefulWidget {
-  const TokenHomePage({super.key});
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
+
   @override
-  State<TokenHomePage> createState() => _TokenHomePageState();
+  State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _TokenHomePageState extends State<TokenHomePage> {
+class _MyHomePageState extends State<MyHomePage> {
+  // getter para a box
   Box<Token> get box => Hive.box<Token>('tokens');
 
-  String _bytesToHex(Uint8List bytes) =>
-      bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
-
-  String? _extractId(NfcTag tag) {
-    final data = tag.data;
-    if (data == null) return null;
-
-    final Map<String, dynamic> dataMap = data as Map<String, dynamic>;
-    if (dataMap['id'] != null && dataMap['id'] is Uint8List) {
-      return _bytesToHex(dataMap['id'] as Uint8List);
-    }
-
-    String? found;
-    void search(dynamic v) {
-      if (found != null) return;
-      if (v is Uint8List) {
-        found = _bytesToHex(v);
-      } else if (v is Map) {
-        v.values.forEach(search);
-      } else if (v is List) {
-        v.forEach(search);
-      }
-    }
-
-    search(data);
-    return found;
+  @override
+  void dispose() {
+    NfcManager.instance.stopSession();
+    // Hive.close(); // opcional: fechar todas as boxes, mas pode ser reaberta depois
+    super.dispose();
   }
 
   Future<void> _startNfcSession() async {
-    final available = await NfcManager.instance.isAvailable();
-    if (!available) {
-      _showMessage('NFC não disponível neste dispositivo.');
+    if (!await NfcManager.instance.isAvailable()) {
+      _showMessage('NFC não está disponível ou está desativado.');
       return;
     }
 
     NfcManager.instance.startSession(
-      pollingOptions: {NfcPollingOption.iso14443},
+      pollingOptions: const {
+        NfcPollingOption.iso14443,
+        NfcPollingOption.iso15693,
+      },
       onDiscovered: (NfcTag tag) async {
+        // Encerra a sessão imediatamente para evitar leituras múltiplas.
+        await NfcManager.instance.stopSession();
+
         try {
-        final id = _extractId(tag);
-        NfcManager.instance.stopSession();
-        if (id == null) {
-          _showMessage('Não foi possível extrair ID do token.');
-          return;
+          String? id;
+
+          // Com a atualização do nfc_manager, usamos as classes de tecnologia (Nfca, MifareClassic, etc)
+          // para acessar os dados da tag de forma segura.
+
+          NFCTag tag = await FlutterNfcKit.poll();
+
+          if (tag.standard.contains("ISO 14443-4")) {
+            id = tag.id;
+          }
+
+          if (id == null) {
+            _showMessage('Não foi possível ler o ID do token.');
+            return;
+          }
+          await _onTagRead(id);
+        } catch (e, st) {
+          if (kDebugMode) {
+            print('Erro ao processar tag NFC: $e');
+            print(st);
+          }
+          _showMessage('Erro ao processar o token: $e');
         }
-        await _onTagRead(id);
-      } catch (e) {
-        NfcManager.instance.stopSession();
-      }
       },
     );
   }
@@ -146,7 +138,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
     final dir = await getApplicationDocumentsDirectory();
     final imagesDir = Directory('${dir.path}/images');
     if (!await imagesDir.exists()) await imagesDir.create(recursive: true);
-    final extension = picked.name.contains('.') ? picked.name.split('.').last : 'jpg';
+    final extension =
+        picked.name.contains('.') ? picked.name.split('.').last : 'jpg';
     final file = File('${imagesDir.path}/$id.$extension');
     await file.writeAsBytes(bytes);
     return file.path;
@@ -168,17 +161,24 @@ class _TokenHomePageState extends State<TokenHomePage> {
                 Text('ID: $id'),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nome (ex: Chave do carro)'),
+                  decoration: const InputDecoration(
+                      labelText: 'Nome (ex: Chave do carro)'),
                 ),
                 const SizedBox(height: 8),
                 if (imagePath != null)
-                  SizedBox(height: 120, child: Image.file(File(imagePath!), fit: BoxFit.contain)),
+                  SizedBox(
+                      height: 120,
+                      child: Image.file(File(imagePath!), fit: BoxFit.contain)),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.camera_alt),
                   label: const Text('Tirar foto (opcional)'),
                   onPressed: () async {
+                    final permissionGranted = await _checkCameraPermission();
+                    if (!permissionGranted) return;
+
                     final picker = ImagePicker();
-                    final picked = await picker.pickImage(source: ImageSource.camera, maxWidth: 1200);
+                    final picked = await picker.pickImage(
+                        source: ImageSource.camera, maxWidth: 1200);
                     if (picked != null) {
                       final saved = await _saveImageFile(id, picked);
                       imagePath = saved;
@@ -190,18 +190,23 @@ class _TokenHomePageState extends State<TokenHomePage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancelar')),
             ElevatedButton(
                 onPressed: () async {
                   final name = nameController.text.trim();
                   if (name.isEmpty) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('Coloque um nome')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coloque um nome')));
                     return;
                   }
                   final token = Token(
-                      id: id, name: name, addedAt: DateTime.now().toIso8601String(), imagePath: imagePath);
-                  await box.put(id, token); // armazenamos com chave = id (evita duplicatas)
+                      id: id,
+                      name: name,
+                      addedAt: DateTime.now().toIso8601String(),
+                      imagePath: imagePath);
+                  await box.put(id, token);
                   Navigator.of(ctx).pop();
                 },
                 child: const Text('Salvar')),
@@ -223,8 +228,12 @@ class _TokenHomePageState extends State<TokenHomePage> {
             title: const Text('Remover token'),
             content: Text('Remover "${token?.name}"?'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Não')),
-              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Sim')),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Não')),
+              ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Sim')),
             ],
           ),
         ) ??
@@ -272,9 +281,11 @@ class _TokenHomePageState extends State<TokenHomePage> {
         final imageFiles = imagesDir.listSync(recursive: true);
         for (var f in imageFiles) {
           if (f is File) {
-            final relPath = f.path.substring(dirPath.length + 1); // relative path
+            final relPath =
+                f.path.substring(dirPath.length + 1); // relative path
             final bytes = await f.readAsBytes();
-            archiveObj.addFile(ArchiveFile('app/$relPath', bytes.length, bytes));
+            archiveObj
+                .addFile(ArchiveFile('app/$relPath', bytes.length, bytes));
           }
         }
       }
@@ -284,7 +295,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
       final stored = await storage.read(key: _secureKeyName);
       if (stored != null && stored.isNotEmpty) {
         final keyBytes = utf8.encode(stored);
-        archiveObj.addFile(ArchiveFile('app/hive_key.txt', keyBytes.length, keyBytes));
+        archiveObj.addFile(
+            ArchiveFile('app/hive_key.txt', keyBytes.length, keyBytes));
       }
 
       // Gera zip
@@ -308,7 +320,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
   // Importa um ZIP selecionado pelo usuário. Fecha Hive antes de sobrescrever arquivos.
   Future<void> _importBackup() async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
+      final result = await FilePicker.platform
+          .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
       if (result == null || result.files.isEmpty) return;
 
       final file = File(result.files.single.path!);
@@ -325,7 +338,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
       for (final file in archive) {
         final filename = file.name;
         // esperamos que dentro do zip os arquivos estejam com prefixo app/...
-        final relative = filename.startsWith('app/') ? filename.substring(4) : filename;
+        final relative =
+            filename.startsWith('app/') ? filename.substring(4) : filename;
         final outPath = '$dirPath/$relative';
 
         if (file.isFile) {
@@ -351,7 +365,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
       Hive.registerAdapter(TokenAdapter());
       final keyBytes = await _getStoredKeyBytes();
       if (keyBytes != null) {
-        await Hive.openBox<Token>('tokens', encryptionCipher: HiveAesCipher(keyBytes));
+        await Hive.openBox<Token>('tokens',
+            encryptionCipher: HiveAesCipher(keyBytes));
       } else {
         await Hive.openBox<Token>('tokens');
       }
@@ -363,13 +378,38 @@ class _TokenHomePageState extends State<TokenHomePage> {
       // tenta reabrir box caso erro (recuperação)
       try {
         final keyBytes = await _getStoredKeyBytes();
-        if (keyBytes != null) await Hive.openBox<Token>('tokens', encryptionCipher: HiveAesCipher(keyBytes));
-        else await Hive.openBox<Token>('tokens');
+        if (keyBytes != null)
+          await Hive.openBox<Token>('tokens',
+              encryptionCipher: HiveAesCipher(keyBytes));
+        else
+          await Hive.openBox<Token>('tokens');
       } catch (_) {}
     }
   }
 
-  // ---------- FIM BACKUP / RESTORE ----------
+  // ---------- FIM BACKUP / RESTORE ---
+
+  // Retorna true se a permissão da câmera foi concedida.
+  Future<bool> _checkCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (status.isGranted) {
+      return true;
+    }
+
+    if (status.isDenied) {
+      // Permissão não solicitada ou negada anteriormente.
+      if (await Permission.camera.request().isGranted) {
+        _showMessage('Permissão da câmera concedida.');
+        return true;
+      }
+    }
+
+    // Permissão negada permanentemente. Leva o usuário para as configurações.
+    _showMessage(
+        'Permissão da câmera negada. Habilite nas configurações do app para usar o recurso.');
+    await openAppSettings();
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -399,7 +439,10 @@ class _TokenHomePageState extends State<TokenHomePage> {
                 context: context,
                 applicationName: 'Registro NFC - Tokens (Hive)',
                 applicationVersion: '0.2',
-                children: const [Text('App para registrar tokens NFC com Hive, backup e criptografia local.')],
+                children: const [
+                  Text(
+                      'App para registrar tokens NFC com Hive, backup e criptografia local.')
+                ],
               );
             },
           )
@@ -409,7 +452,8 @@ class _TokenHomePageState extends State<TokenHomePage> {
         valueListenable: box.listenable(),
         builder: (context, Box<Token> b, _) {
           final keys = b.keys.cast<String>().toList();
-          if (keys.isEmpty) return const Center(child: Text('Nenhum token salvo.'));
+          if (keys.isEmpty)
+            return const Center(child: Text('Nenhum token salvo.'));
           return ListView.builder(
             itemCount: keys.length,
             itemBuilder: (context, i) {
@@ -417,9 +461,11 @@ class _TokenHomePageState extends State<TokenHomePage> {
               final t = b.get(key);
               if (t == null) return const SizedBox.shrink();
               return ListTile(
-                leading: (t.imagePath != null && File(t.imagePath!).existsSync())
-                    ? CircleAvatar(backgroundImage: FileImage(File(t.imagePath!)))
-                    : const CircleAvatar(child: Icon(Icons.vpn_key)),
+                leading:
+                    (t.imagePath != null && File(t.imagePath!).existsSync())
+                        ? CircleAvatar(
+                            backgroundImage: FileImage(File(t.imagePath!)))
+                        : const CircleAvatar(child: Icon(Icons.vpn_key)),
                 title: Text(t.name),
                 subtitle: Text('ID: ${t.id}\nAdicionado: ${t.addedAt}'),
                 isThreeLine: true,
@@ -437,11 +483,16 @@ class _TokenHomePageState extends State<TokenHomePage> {
                               children: [
                                 Text('ID: ${t.id}'),
                                 const SizedBox(height: 8),
-                                if (t.imagePath != null && File(t.imagePath!).existsSync())
+                                if (t.imagePath != null &&
+                                    File(t.imagePath!).existsSync())
                                   Image.file(File(t.imagePath!)),
                               ],
                             ),
-                            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Fechar'))],
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(),
+                                  child: const Text('Fechar'))
+                            ],
                           ));
                 },
               );

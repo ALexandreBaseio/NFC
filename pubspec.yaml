@@ -3,30 +3,28 @@ description: App simples para registrar tokens NFC com Hive, imagens em disco, b
 publish_to: "none"
 version: 0.1.0
 environment:
-  sdk: ">=2.18.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 dependencies:
   flutter:
     sdk: flutter
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  path_provider: ^2.0.14
-  image_picker: ^0.8.7+4
-  nfc_manager: 4.1.1
-  permission_handler: ^11.0.0
-  flutter_secure_storage: ^8.0.0
-  archive: ^3.3.8
-  file_picker:
-    git:
-      url: https://github.com/miguelpruivo/flutter_file_picker.git
-      ref: master
-  share_plus: ^12.0.1
-  json_annotation: ^4.8.1
+  path_provider: ^2.1.3
+  image_picker: ^1.1.2
+  nfc_manager: ^4.1.1
+  permission_handler: ^11.3.1
+  flutter_secure_storage: ^9.2.2
+  archive: ^3.6.1
+  file_picker: ^8.0.0+1
+  share_plus: ^9.0.0
+  json_annotation: ^4.9.0
+  flutter_nfc_kit: ^3.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.6
-  json_serializable: ^6.7.1
+  build_runner: ^2.4.11
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
